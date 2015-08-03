@@ -101,7 +101,7 @@ defmodule StreamRunner do
 
   @doc false
   def format_status(:normal, [_, sys_state, parent, dbg, [name, cont]]) do
-    header = :gen.format_status_header('Status for Streamer', name)
+    header = :gen.format_status_header('Status for StreamRunner', name)
     log = :sys.get_debug(:log, dbg, [])
     [{:header, header},
      {:data, [{'Status', sys_state},
