@@ -148,35 +148,35 @@ defmodule StreamRunner do
   end
 
   defp loop(parent, dbg, name, cont) do
-    try do
-      cont.({:cont, nil})
-    catch
-      :error, value ->
-        reason = {value, System.stacktrace()}
-        log_stop(reason, reason, name, cont)
-      :throw, value ->
-        reason = {{:nocatch, value}, System.stacktrace()}
-        log_stop(reason, reason, name, cont)
-      :exit, value ->
-        log_stop({value, System.stacktrace()}, value, name, cont)
-    else
-      {:suspended, _v, cont} ->
-        # todo: log _v and cont with :sys dbg event
-        receive do
-          {:EXIT, ^parent, reason} ->
-            terminate(reason, name, cont)
-          {:system, from, msg} ->
-            :sys.handle_system_msg(msg, from, parent, __MODULE__, dbg, [name, cont])
-        after
-          0 ->
-            loop(parent, dbg, name, cont)
-      end
-      {res, nil} when res in [:halted, :done] ->
-        terminate(:normal, name, cont)
-      other ->
-        reason = {:bad_return_value, other}
+    receive do
+      {:EXIT, ^parent, reason} ->
         terminate(reason, name, cont)
-    end
+      {:system, from, msg} ->
+        :sys.handle_system_msg(msg, from, parent, __MODULE__, dbg, [name, cont])
+    after
+      0 ->
+        try do
+          cont.({:cont, nil})
+        catch
+          :error, value ->
+            reason = {value, System.stacktrace()}
+            log_stop(reason, reason, name, cont)
+          :throw, value ->
+            reason = {{:nocatch, value}, System.stacktrace()}
+            log_stop(reason, reason, name, cont)
+          :exit, value ->
+            log_stop({value, System.stacktrace()}, value, name, cont)
+        else
+          {:suspended, _v, cont} ->
+            # todo: log _v and cont with :sys dbg event
+            loop(parent, dbg, name, cont)
+          {res, nil} when res in [:halted, :done] ->
+            terminate(:normal, name, cont)
+          other ->
+            reason = {:bad_return_value, other}
+            terminate(reason, name, cont)
+        end
+      end
   end
 
   defp terminate(reason, name, cont) do
