@@ -205,7 +205,7 @@ defmodule StreamRunner do
   defp stop({:shutdown, _} = shutdown, _, _), do: exit(shutdown)
   defp stop(reason, name, cont),              do: log_stop(reason, reason, name, cont)
 
-  defp log_stop(reason, report_reason, name, cont) do
+  defp log_stop(report_reason, reason, name, cont) do
     :error_logger.format(
       '** StreamRunner ~p terminating~n' ++
       '** When continuation      == ~p~n' ++
