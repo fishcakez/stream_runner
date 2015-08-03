@@ -50,6 +50,7 @@ defmodule StreamRunner do
     init_it(starter, self(), name, mod, stream, opts)
   end
   def init_it(starter, parent, name, __MODULE__, stream, opts) do
+    _ = Process.put(:"$initial_call", {StreamRunner, :init_it, 6})
     dbg = :gen.debug_options(opts)
     try do
       Enumerable.reduce(stream, {:suspend, nil}, fn(v, _) -> {:suspend, v} end)

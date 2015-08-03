@@ -15,6 +15,7 @@ defmodule StreamRunnerTest do
 
   test "start_link/1" do
     {:ok, pid} = StreamRunner.start_link(interval_stream())
+    assert :proc_lib.translate_initial_call(pid) == {StreamRunner, :init_it, 6}
     caller = self()
     assert Process.info(pid, :links) == {:links, [caller]}
     assert_receive 0
