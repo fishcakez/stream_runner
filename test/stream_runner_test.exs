@@ -163,6 +163,23 @@ defmodule StreamRunnerTest do
     assert Keyword.fetch!(stats, :reductions) > reductions
     assert :sys.statistics(pid, :false) == :ok
     assert :sys.statistics(pid, :get) == {:ok, :no_statistics}
+    assert_receive 1
+  end
+
+  @tag :sys
+  test ":sys.get_status/1" do
+    {:ok, pid} = StreamRunner.start_link(interval_stream())
+    assert_receive 0
+    assert {:status, ^pid, {:module, StreamRunner}, info} = :sys.get_status(pid)
+    caller = self()
+    assert [pdict, :running, ^caller, [], status] = info
+    assert Keyword.get(pdict, :"$initial_call") == {StreamRunner, :init_it, 6}
+    assert {:ok, 'Status for StreamRunner <' ++ _} = Keyword.fetch(status, :header)
+    assert {:ok, [{'Status', :running},
+                  {'Parent', ^caller},
+                  {'Logged Events', []},
+                  {'Continuation', cont}]} = Keyword.fetch(status, :data)
+    assert is_function(cont, 1)
   end
 
   @tag :sys
