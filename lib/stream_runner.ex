@@ -1,28 +1,51 @@
 defmodule StreamRunner do
+  @moduledoc """
+  The `StreamRunner` provides a convenient way to run a `Stream` as process in a
+  supervisor tree.
 
+  To run a `Stream` as a process simply pass the stream to `StreamRunner.start_link/1`:
+
+      stream = Stream.interval(1_000) |> Stream.each(&IO.inspect/1)
+      {:ok, pid} = StreamRunner.start_link(stream)
+
+  """
+
+  @typedoc "Debug option values."
+  @type debug_option :: :trace | :log | :statistics | {:log_to_file, Path.t}
+
+  @typedoc "The name of the `StreamRunner`."
+  @type name :: atom | {:global, term} | {:via, module, term}
+
+  @typedoc "`StreamRunner` `start_link/2` or `start/2` option values."
+  @type option ::
+    {:debug, [debug_option]} |
+    {:name, name} |
+    {:timeout, timeout} |
+    {:spawn_opt, Process.spawn_opt}
+
+  @typedoc "`start_link/2` or `start/2` return values."
+  @type on_start :: {:ok, pid} | :ignore | {:error, {:already_started, pid} | term}
+
+  @doc """
+  Start a `StreamRunner` as part of the supervision tree.
+  """
+  @spec start_link(Enumerable.t, [option]) :: on_start
   def start_link(stream, opts \\ []) do
     start(stream, opts, :link)
   end
 
+  @doc """
+  Start a `StreamRunner`.
+
+  The `StreamRunner` is not linked to the calling process.
+  """
   def start(stream, opts \\ []) do
     start(stream, opts, :nolink)
   end
 
-  defp start(stream, opts, link) do
-    case Keyword.pop(opts, :name) do
-      {nil, opts} ->
-        :gen.start(__MODULE__, link, __MODULE__, stream, opts)
-      {atom, opts} when is_atom(atom) ->
-        :gen.start(__MODULE__, link, {:local, atom}, __MODULE__, stream, opts)
-      {{:global, _} = name, opts} ->
-        :gen.start(__MODULE__, link, name, __MODULE__, stream, opts)
-      {{:via, _, _} = name, opts} ->
-        :gen.start(__MODULE__, link, name, __MODULE__, stream, opts)
-    end
-  end
-
   ## :gen callbacks
 
+  @doc false
   def init_it(starter, :self, name, mod, stream, opts) do
     init_it(starter, self(), name, mod, stream, opts)
   end
@@ -53,6 +76,7 @@ defmodule StreamRunner do
 
   ## :sys callbacks
 
+  @doc false
   def system_continue(parent, dbg, [name, cont]) do
     loop(parent, dbg, name, cont)
   end
@@ -61,10 +85,13 @@ defmodule StreamRunner do
     terminate(reason, name, cont)
   end
 
+  @doc false
   def system_code_change([name, cont], _, _, _), do: {:ok, [name, cont]}
 
+  @doc false
   def system_get_state([_, cont]), do: {:ok, cont}
 
+  @doc false
   def system_replace_state(replace, [name, cont]) do
     case replace.(cont) do
       cont when is_function(cont, 1) ->
@@ -72,6 +99,7 @@ defmodule StreamRunner do
      end
   end
 
+  @doc false
   def format_status(:normal, [_, sys_state, parent, dbg, [name, cont]]) do
     header = :gen.format_status_header('Status for Streamer', name)
     log = :sys.get_debug(:log, dbg, [])
@@ -83,6 +111,19 @@ defmodule StreamRunner do
   end
 
   ## Internal
+
+  defp start(stream, opts, link) do
+    case Keyword.pop(opts, :name) do
+      {nil, opts} ->
+        :gen.start(__MODULE__, link, __MODULE__, stream, opts)
+      {atom, opts} when is_atom(atom) ->
+        :gen.start(__MODULE__, link, {:local, atom}, __MODULE__, stream, opts)
+      {{:global, _} = name, opts} ->
+        :gen.start(__MODULE__, link, name, __MODULE__, stream, opts)
+      {{:via, _, _} = name, opts} ->
+        :gen.start(__MODULE__, link, name, __MODULE__, stream, opts)
+    end
+  end
 
   defp init_error(reason, starter, name) do
     init_stop({:error, reason}, reason, starter, name)
