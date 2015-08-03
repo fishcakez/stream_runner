@@ -82,6 +82,7 @@ defmodule StreamRunner do
     loop(parent, dbg, name, cont)
   end
 
+  @doc false
   def system_terminate(reason, _, _, [name, cont]) do
     terminate(reason, name, cont)
   end
