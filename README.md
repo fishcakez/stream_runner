@@ -6,7 +6,7 @@ Install
 Add as a dependency:
 ```elixir
 defp deps() do
-  [{:stream_runner, "~> 1.0.0"}]
+  [{:stream_runner, "~> 1.0"}]
 end
 ```
 
