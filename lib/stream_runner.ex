@@ -136,7 +136,7 @@ defmodule StreamRunner do
   end
 
   defp unregister(pid) when is_pid(pid), do: :ok
-  defp unregister(name) when is_atom(name), do: Process.unregister(name)
+  defp unregister({:local, name}) when is_atom(name), do: Process.unregister(name)
   defp unregister({:global, name}), do: :global.unregister_name(name)
   defp unregister({:via, mod, name}), do: apply(mod, :unregister_name, [name])
 
