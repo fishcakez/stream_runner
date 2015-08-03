@@ -57,7 +57,7 @@ defmodule StreamRunner do
     loop(parent, dbg, name, cont)
   end
 
-  def system_stop(reason, _, _, [name, cont]) do
+  def system_terminate(reason, _, _, [name, cont]) do
     terminate(reason, name, cont)
   end
 
