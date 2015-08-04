@@ -1,7 +1,7 @@
 defmodule StreamRunner.Mixfile do
   use Mix.Project
 
-  @version "1.0.2"
+  @version "1.1.0"
 
   def project do
     [app: :stream_runner,
