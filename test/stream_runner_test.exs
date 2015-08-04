@@ -230,6 +230,15 @@ defmodule StreamRunnerTest do
     end
   end
 
+  @tag :sys
+  test ":sys.handle_debug/4" do
+    {:ok, pid} = StreamRunner.start_link(Stream.interval(50))
+    hook = fn(caller, event, name) -> send(caller, {name, event}) ; caller end
+    assert :sys.install(pid, {hook, self()}) == :ok
+    assert_receive {^pid, {:suspended, 1, cont}} when is_function(cont, 1)
+    assert_receive {^pid, {:suspended, 2, cont}} when is_function(cont, 1)
+  end
+
   ## Helpers
 
   defp interval_stream() do

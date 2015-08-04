@@ -83,8 +83,8 @@ defmodule StreamRunner do
   end
 
   @doc false
-  def system_terminate(reason, _, _, [name, cont]) do
-    terminate(reason, name, cont)
+  def system_terminate(reason, _, dbg, [name, cont]) do
+    terminate(reason, dbg, name, cont)
   end
 
   @doc false
@@ -152,7 +152,7 @@ defmodule StreamRunner do
   defp loop(parent, dbg, name, cont) do
     receive do
       {:EXIT, ^parent, reason} ->
-        terminate(reason, name, cont)
+        terminate(reason, dbg, name, cont)
       {:system, from, msg} ->
         :sys.handle_system_msg(msg, from, parent, __MODULE__, dbg, [name, cont])
     after
@@ -162,57 +162,66 @@ defmodule StreamRunner do
         catch
           :error, value ->
             reason = {value, System.stacktrace()}
-            log_stop(reason, reason, name, cont)
+            log_stop(reason, reason, dbg, name, cont)
           :throw, value ->
             reason = {{:nocatch, value}, System.stacktrace()}
-            log_stop(reason, reason, name, cont)
+            log_stop(reason, reason, dbg, name, cont)
           :exit, value ->
-            log_stop({value, System.stacktrace()}, value, name, cont)
+            log_stop({value, System.stacktrace()}, value, dbg, name, cont)
         else
-          {:suspended, _v, cont} ->
-            # todo: log _v and cont with :sys dbg event
+          {:suspended, _, cont} when dbg == [] ->
+            loop(parent, dbg, name, cont)
+          {:suspended, _, cont} = event ->
+            dbg = :sys.handle_debug(dbg, &print_event/3, name, event)
             loop(parent, dbg, name, cont)
           {res, nil} when res in [:halted, :done] ->
             exit(:normal)
           other ->
             reason = {:bad_return_value, other}
-            terminate(reason, name, cont)
+            terminate(reason, dbg, name, cont)
         end
       end
   end
 
-  defp terminate(reason, name, cont) do
+  defp print_event(device, {:suspended, v, cont}, name) do
+    msg = ["*DBG* ", inspect(name), " got value ", inspect(v),
+           ", new continuation: " | inspect(cont)]
+    IO.puts(device, msg)
+  end
+
+  defp terminate(reason, dbg, name, cont) do
     try do
       cont.({:halt, nil})
     catch
       :error, value ->
         reason = {value, System.stacktrace()}
-        log_stop(reason, reason, name, cont)
+        log_stop(reason, reason, dbg, name, cont)
       :throw, value ->
         reason = {{:nocatch, value}, System.stacktrace()}
-        log_stop(reason, reason, name, cont)
+        log_stop(reason, reason, dbg, name, cont)
       :exit, value ->
-        log_stop({value, System.stacktrace()}, value, name, cont)
+        log_stop({value, System.stacktrace()}, value, dbg, name, cont)
     else
       {res, nil} when res in [:halted, :done] ->
-        stop(reason, name, cont)
+        stop(reason, dbg, name, cont)
       other ->
         reason = {:bad_return_value, other}
-        log_stop(reason, reason, name, cont)
+        log_stop(reason, reason, dbg, name, cont)
     end
   end
 
-  defp stop(:normal, _, _),                   do: exit(:normal)
-  defp stop(:shutdown, _, _),                 do: exit(:shutdown)
-  defp stop({:shutdown, _} = shutdown, _, _), do: exit(shutdown)
-  defp stop(reason, name, cont),              do: log_stop(reason, reason, name, cont)
+  defp stop(:normal, _, _, _),                  do: exit(:normal)
+  defp stop(:shutdown, _, _, _),                 do: exit(:shutdown)
+  defp stop({:shutdown, _} = shutdown, _, _, _), do: exit(shutdown)
+  defp stop(reason, dbg, name, cont),            do: log_stop(reason, reason, dbg, name, cont)
 
-  defp log_stop(report_reason, reason, name, cont) do
+  defp log_stop(report_reason, reason, dbg, name, cont) do
     :error_logger.format(
       '** StreamRunner ~p terminating~n' ++
       '** When continuation      == ~p~n' ++
       '** Reason for termination == ~n' ++
       '** ~p~n', [name, cont, format_reason(report_reason)])
+    :sys.print_log(dbg)
     exit(reason)
   end
 
