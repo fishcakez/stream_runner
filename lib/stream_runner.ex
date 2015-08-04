@@ -212,7 +212,24 @@ defmodule StreamRunner do
       '** StreamRunner ~p terminating~n' ++
       '** When continuation      == ~p~n' ++
       '** Reason for termination == ~n' ++
-      '** ~p~n', [name, cont, report_reason])
+      '** ~p~n', [name, cont, format_reason(report_reason)])
     exit(reason)
+  end
+
+  defp format_reason({:undef, [{mod, fun, args, _} | _] = stacktrace} = reason)
+  when is_atom(mod) and is_atom(fun) do
+    cond do
+      :code.is_loaded(mod) === false ->
+        {:"module could not be loaded", stacktrace}
+      is_list(args) and not function_exported?(mod, fun, length(args)) ->
+        {:"function not exported", stacktrace}
+      is_integer(args) and not function_exported?(mod, fun, args) ->
+        {:"function not exported", stacktrace}
+      true ->
+        reason
+    end
+  end
+  defp format_reason(reason) do
+    reason
   end
 end
