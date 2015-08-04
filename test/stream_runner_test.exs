@@ -51,6 +51,27 @@ defmodule StreamRunnerTest do
     assert_receive 2
   end
 
+  test "exit normally on :halt" do
+    Process.flag(:trap_exit, true)
+    caller = self()
+    start_fun = fn() -> send(caller, :start) ; nil end
+    next_fun = fn(acc) -> send(caller, :next) ; {:halt, acc} end
+    after_fun = fn(_) -> send(caller, :after) end
+    stream = Stream.resource(start_fun, next_fun, after_fun)
+    {:ok, pid} = StreamRunner.start_link(stream)
+    assert_receive :start
+    assert_receive :next
+    assert_receive {:EXIT, ^pid, :normal}
+    assert_received :after
+    refute_received :after
+  end
+
+  test "exit normally on :done" do
+    Process.flag(:trap_exit, true)
+    {:ok, pid} = StreamRunner.start_link([])
+    assert_receive {:EXIT, ^pid, :normal}
+  end
+
   @tag :raise
   test "start throw with :local name" do
     stream = start_stream(fn() -> throw(:oops) end)

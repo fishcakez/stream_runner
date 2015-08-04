@@ -173,7 +173,7 @@ defmodule StreamRunner do
             # todo: log _v and cont with :sys dbg event
             loop(parent, dbg, name, cont)
           {res, nil} when res in [:halted, :done] ->
-            terminate(:normal, name, cont)
+            exit(:normal)
           other ->
             reason = {:bad_return_value, other}
             terminate(reason, name, cont)
